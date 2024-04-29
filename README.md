@@ -4,6 +4,8 @@ This is my dot files, some of them are modified from others.
 
 ## Install
 
+**WARNING**: Backup your dot files before installing.
+
 ```sh
 # change-dir into this repo
 cd dottie
