@@ -10,16 +10,26 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
+# print help
 if [ "$1" = '-h' ]|| [ "$1" = '--help' ]; then
     get_help
     exit 0
 fi
 
+# current dir
+if [ "$1" = '.' ]; then
+    lyng_dir=$(basename "$(pwd)")
+    tmux new -s "$lyng_dir"
+    exit 0
+fi
+
+# not a dir
 if ! [ -d "$1" ]; then
     echo "\"$1\" is not a directory or not accessible"
     exit 1
 fi
 
+# al ok
 lyng_dir=$(basename "$1")
 
 lyng_cwd=$(pwd)
