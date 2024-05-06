@@ -2,6 +2,14 @@
 
 This is my dot files, some of them are modified from others.
 
+## Packages/Dependencies
+
+- A [Nerd Font](https://github.com/ryanoasis/nerd-fonts)
+- [Z-Shell](https://www.zsh.org/) with [oh-my-zsh](https://ohmyz.sh/) and [zsh-completions](https://github.com/zsh-users/zsh-completions)
+- [Starship](https://starship.rs/) shell prompt
+- [Tmux](https://github.com/tmux/tmux/wiki) terminal multiplexer
+- [GitUI](https://github.com/extrawurst/gitui) git terminal user interface
+
 ## Install
 
 **WARNING**: Backup your dot files before installing.
@@ -9,8 +17,8 @@ This is my dot files, some of them are modified from others.
 ```sh
 # change-dir into this repo
 cd dottie
-# copy everything into their position
-cp ./* ~/
+# hard link everything into their position
+ln ./* ~/
 ```
 
 ## References
