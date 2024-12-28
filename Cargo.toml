@@ -4,3 +4,12 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+# Cli
+clap = { version = "4.5", features = ["derive"] }
+home = "0.5"
+# Error Handling
+thiserror = "2.0"
+anyhow = "1.0"
+# Logging
+log = "0.4"
+simplelog = "0.12"
