@@ -1,19 +1,46 @@
 use std::{
+    fs::DirEntry,
     io,
     os::unix,
     path::{Path, PathBuf},
 };
 
-use anyhow::Result;
 use home::home_dir;
-use log::{error, info, warn};
+use log::{error, info, trace, warn};
 use thiserror::Error;
 
 use crate::{cli::PackageArg, DOTTIE_DIR, FILES_DIR_NAME};
 
 pub fn main(arg: PackageArg) -> anyhow::Result<()> {
+    let mut summary = Vec::new();
     for package in arg.packages.iter() {
-        link(package);
+        summary.push((package, link(package)));
+    }
+
+    println!("=== Execution Summary ===");
+    for (package, res) in summary {
+        match res {
+            Ok(summaries) => {
+                println!("Package \"{}\" tried linking the following files:", package);
+                for res in summaries {
+                    match res {
+                        FileSummary::Linked { file, link } => {
+                            println!("- Successfully linked: {:?} <- {:?}", file, link);
+                        }
+                        FileSummary::Failed { file, reason } => {
+                            println!("- Failed to link {:?} because: {:?}", file, reason);
+                        }
+                        FileSummary::Ignored { file } => {
+                            println!("- Ignored {:?} as already linked", file);
+                        }
+                        FileSummary::Skipped { file } => {
+                            println!("- Skipped {:?} as requested by user (force link)", file);
+                        }
+                    }
+                }
+            }
+            Err(e) => println!("{}", e),
+        }
     }
 
     Ok(())
@@ -23,10 +50,10 @@ pub fn main(arg: PackageArg) -> anyhow::Result<()> {
 
 #[derive(Debug, Error)]
 enum PackageError {
-    #[error("Given package is inaccessible")]
+    #[error("Given package is inaccessible: {0:?}")]
     PackageInaccessible(Option<io::Error>),
 
-    #[error("Files directory of given package is inaccessible")]
+    #[error("Files directory of given package is inaccessible: {0:?}")]
     FilesDirInaccessible(Option<io::Error>),
 
     #[error("Failed to read the files directory (or its subdirectory): {0:?}")]
@@ -35,16 +62,18 @@ enum PackageError {
     #[error("Failed to read the home directory (or its subdirectory): {0:?}")]
     ErrorReadingHomeDir(io::Error),
 
-    #[error("Resolving failed: conflict directory found at destination {0}")]
-    ConflictDirAtDest(PathBuf),
+    #[error("Conflict files found at destination (don't force link): {0:?}")]
+    ConflictFilesNoForce(Vec<PathBuf>),
 }
 
-struct FilesSummary {
-    file: PathBuf,
-    res: io::Result<PathBuf>,
+enum FileSummary {
+    Linked { file: PathBuf, link: PathBuf },
+    Failed { file: PathBuf, reason: io::Error },
+    Ignored { file: PathBuf },
+    Skipped { file: PathBuf },
 }
 
-fn link(package: &str) -> Result<Vec<FilesSummary>, PackageError> {
+fn link(package: &str) -> Result<Vec<FileSummary>, PackageError> {
     let dir = DOTTIE_DIR.join(package);
 
     match dir.try_exists() {
@@ -79,148 +108,135 @@ fn link(package: &str) -> Result<Vec<FilesSummary>, PackageError> {
     };
 
     let solution = resolve(&dir, &home_dir().unwrap())?;
-    todo!("{:#?}", solution);
+    if !solution.all_good {
+        // TODO: message
+        warn!(
+            "Not all files of package \"{}\" can be safely linked",
+            package
+        );
+        return Err(PackageError::ConflictFilesNoForce(
+            solution
+                .link_opt
+                .into_iter()
+                .filter_map(|opt| match opt {
+                    LinkOpt::Skip { file } => Some(file),
+                    _ => None,
+                })
+                .collect(),
+        ));
+    }
 
     let mut summary = Vec::new();
-    for item in solution {
-        let Err(err) = unix::fs::symlink(&item.orig, &item.link) else {
-            summary.push(FilesSummary {
-                file: item.orig,
-                res: Ok(item.link),
-            });
-            continue;
-        };
-
-        summary.push(FilesSummary {
-            file: item.orig,
-            res: Err(err),
-        });
+    for opt in solution.link_opt {
+        match opt {
+            LinkOpt::Link { file, link } => {
+                info!("Symlinking {:?} -> {:?}", link, file);
+                match unix::fs::symlink(&file, &link) {
+                    Ok(()) => summary.push(FileSummary::Linked { file, link }),
+                    Err(e) => summary.push(FileSummary::Failed { file, reason: e }),
+                }
+            }
+            LinkOpt::Ignore { file } => {
+                info!("Ignoring {:?} as already linked", file);
+                summary.push(FileSummary::Ignored { file });
+            }
+            LinkOpt::Skip { file } => {
+                warn!("Skipping {:?} because destination is occupied", file);
+                summary.push(FileSummary::Skipped { file });
+            }
+        }
     }
 
     Ok(summary)
 }
 
-type Solution = Vec<LinkPair>;
 #[derive(Debug)]
-struct LinkPair {
-    orig: PathBuf,
-    link: PathBuf,
+struct Solution {
+    all_good: bool,
+    link_opt: Vec<LinkOpt>,
+}
+impl Solution {
+    fn new() -> Self {
+        Self {
+            all_good: true,
+            link_opt: Vec::new(),
+        }
+    }
 }
 
-fn resolve(src: &Path, dest_parent: &Path) -> Result<Solution, PackageError> {
-    let mut solution = Vec::new();
-    for entry in src.read_dir().map_err(PackageError::ErrorReadingFilesDir)? {
-        let Ok(entry) = entry else {
-            warn!("Error reading entry \"{:?}\", skipping", entry);
+#[derive(Debug)]
+enum LinkOpt {
+    Link { file: PathBuf, link: PathBuf },
+    Ignore { file: PathBuf },
+    Skip { file: PathBuf },
+}
+
+fn resolve(src_parent: &Path, dest_parent: &Path) -> Result<Solution, PackageError> {
+    assert!(
+        src_parent.is_dir(),
+        "`resolve()` called with `src_parent` not being a dir"
+    );
+
+    let dest_entries: Vec<DirEntry> = dest_parent
+        .read_dir()
+        .map_err(PackageError::ErrorReadingHomeDir)?
+        .flatten()
+        .collect();
+    let mut solution = Solution::new();
+    for src_entry in src_parent
+        .read_dir()
+        .map_err(PackageError::ErrorReadingFilesDir)?
+    {
+        let Ok(src_entry) = src_entry else {
+            warn!("Skipping broken dir entry");
             continue;
         };
+        let src_name = src_entry.file_name();
+        let src_path = src_entry.path();
 
-        // Try finding an entry under `dest_parent` with the same name
-        let Some(dest_entry) = dest_parent
-            .read_dir()
-            .map_err(PackageError::ErrorReadingHomeDir)?
-            .flatten()
-            .find(|dest_entry| dest_entry.file_name() == entry.file_name())
-        else {
-            // No shared parent, link them directly, and continue to the next one
-            solution.push(LinkPair {
-                orig: entry.path(),
-                link: dest_parent.join(entry.path().file_name().unwrap()),
-            });
-            continue;
-        };
-
-        // Found an entry with the same name under `dest_parent`
-        info!(
-            "Found an entry with the same name: {:?} & {:?}",
-            entry, dest_entry
-        );
         match (
-            entry
+            src_entry
                 .file_type()
                 .map_err(PackageError::ErrorReadingFilesDir)?,
-            dest_entry
-                .file_type()
-                .map_err(PackageError::ErrorReadingHomeDir)?,
+            dest_entries
+                .iter()
+                .find(|entry| entry.file_name() == src_name),
         ) {
-            // If both entries are directory, continue operation (recursively)
-            (src_ty, dest_ty) if src_ty.is_dir() && dest_ty.is_dir() => (),
-            // If target is symlink
-            (_, dest_ty)
-                if dest_ty.is_symlink()
+            // If the destination is unoccupied, just link it
+            (_, None) => {
+                trace!("{:?} ~~> {:?}", dest_parent.join(&src_name), src_path);
+                solution.link_opt.push(LinkOpt::Link {
+                    file: src_path,
+                    link: dest_parent.join(src_name),
+                });
+            }
+            // If there's a symlink there, check if it's created by dottie
+            (_, Some(dest_entry))
+                if dest_entry
+                    .file_type()
+                    .map_err(PackageError::ErrorReadingHomeDir)?
+                    .is_symlink()
                     && dest_entry
                         .path()
                         .read_link()
-                        .map_err(PackageError::ErrorReadingHomeDir)?
-                        == entry.path() =>
+                        .is_ok_and(|path| path == src_path) =>
             {
-                warn!("Skipping already linked entry: {:?}", entry);
-                continue;
+                trace!("# ~~> {:?}", src_path);
+                solution.link_opt.push(LinkOpt::Ignore { file: src_path });
             }
-            // If either of them is a file, then abort resolving
-            (_, _) => {
-                // TODO: Error message
-                error!("Conflict {:?}, {:?}", entry, dest_entry);
-                return Err(PackageError::ConflictDirAtDest(dest_entry.path()));
-            }
-        }
-
-        //  Resolve linking solution for every entry under it
-        for sub_entry in entry
-            .path()
-            .read_dir()
-            .map_err(PackageError::ErrorReadingFilesDir)?
-        {
-            let Ok(sub_entry) = sub_entry else {
-                warn!("Error reading entry \"{:?}\", skipping", entry);
-                continue;
-            };
-
-            match sub_entry
-                .file_type()
-                .map_err(PackageError::ErrorReadingFilesDir)?
+            // If both are directories, resolve recursively
+            (ty, Some(dest_entry))
+                if ty.is_dir() && dest_entry.file_type().is_ok_and(|ty| ty.is_dir()) =>
             {
-                ty if ty.is_dir() => {
-                    // If it's a dir, then recursively develop solution
-                    error!("resolve({:?}, {:?})", sub_entry.path(), dest_entry.path());
-                    let mut sub_sol = resolve(&sub_entry.path(), &dest_entry.path())?;
-                    solution.append(&mut sub_sol);
-                }
-                ty if ty.is_symlink() => {
-                    // If it's a symlink, check if it's linked by dottie
-                    warn!("UWU: {:?}, {:?}", sub_entry.path(), dest_entry.path());
-                }
-                _ => {
-                    // Otherwise, check if destination is unoccupied
-                    let dest = dest_entry
-                        .path()
-                        .join(sub_entry.path().file_name().unwrap());
-
-                    // If occupied, check if it's a symlink created by dottie
-                    if dest
-                        .try_exists()
-                        .map_err(PackageError::ErrorReadingHomeDir)?
-                    {
-                        if dest.is_symlink()
-                            && dest
-                                .read_link()
-                                .map_err(PackageError::ErrorReadingHomeDir)?
-                                == sub_entry.path()
-                        {
-                            warn!("Skipping already linked entry: {:?}", entry);
-                            continue;
-                        }
-                        error!("Conflict {:?}, {:?}", sub_entry.path(), dest);
-                        return Err(PackageError::ConflictDirAtDest(dest));
-                    }
-
-                    solution.push(LinkPair {
-                        orig: sub_entry.path(),
-                        link: dest_entry
-                            .path()
-                            .join(sub_entry.path().file_name().unwrap()),
-                    });
-                }
+                let mut sub_solution = resolve(&src_entry.path(), &dest_entry.path())?;
+                solution.all_good &= sub_solution.all_good;
+                solution.link_opt.append(&mut sub_solution.link_opt);
+            }
+            // Otherwise, failed
+            (_, Some(_)) => {
+                trace!("[!] {:?}", src_path);
+                solution.all_good = false;
+                solution.link_opt.push(LinkOpt::Skip { file: src_path });
             }
         }
     }
