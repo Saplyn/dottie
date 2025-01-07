@@ -7,9 +7,9 @@ use std::{
 use log::{error, info, warn};
 use thiserror::Error;
 
-use crate::{cli::PackageArg, DOTTIE_DIR, SCRIPTS_DIR_NAME};
+use crate::{cli::RunArg, DOTTIE_DIR, SCRIPTS_DIR_NAME};
 
-pub fn main(arg: PackageArg) -> Result<(), Infallible> {
+pub fn main(arg: RunArg) -> Result<(), Infallible> {
     let mut summary = Vec::new();
     for package in arg.packages.iter() {
         summary.push((package, run(package)));

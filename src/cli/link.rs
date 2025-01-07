@@ -10,9 +10,9 @@ use home::home_dir;
 use log::{error, info, trace, warn};
 use thiserror::Error;
 
-use crate::{cli::PackageArg, DOTTIE_DIR, FILES_DIR_NAME};
+use crate::{cli::LinkArg, DOTTIE_DIR, FILES_DIR_NAME};
 
-pub fn main(arg: PackageArg) -> Result<(), Infallible> {
+pub fn main(arg: LinkArg) -> Result<(), Infallible> {
     let mut summary = Vec::new();
     for package in arg.packages.iter() {
         summary.push((package, link(package)));
