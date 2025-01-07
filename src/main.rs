@@ -1,9 +1,9 @@
-use std::{fs, io, path::PathBuf, sync::LazyLock};
+use std::{fs, path::PathBuf, sync::LazyLock};
 
 use clap::{error::Result, Parser};
 use cli::CliArg;
 use home::home_dir;
-use log::{info, trace, warn, LevelFilter, SetLoggerError};
+use log::{info, trace, LevelFilter, SetLoggerError};
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 
 mod cli;
