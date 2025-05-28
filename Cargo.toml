@@ -1,0 +1,19 @@
+[package]
+name = "dottie"
+version = "0.0.0"
+edition = "2024"
+build = "build.rs"
+
+[build-dependencies]
+built = { version = "0.8", features = ["chrono"] }
+
+[dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+built = { version = "0.8", features = ["chrono"] }
+owo-colors = "4.2"
+# Error Handling
+thiserror = "2.0"
+# Logging
+log = "0.4"
+simplelog = "0.12"
