@@ -1,4 +1,7 @@
-use clap::{Args, Parser};
+use clap::Parser;
+
+use crate::link::LinkArg;
+use crate::run::RunArg;
 
 pub mod info;
 pub mod link;
@@ -15,32 +18,6 @@ pub enum CliArg {
     Link(LinkArg),
 
     // TODO: help message
-    #[clap(about = "Built info")]
+    #[clap(about = "Display binary built info")]
     Info,
-}
-
-#[derive(Debug, Clone, Args)]
-pub struct RunArg {
-    // TODO: help message
-    #[arg(group = "specify", required = true, help = "TODO")]
-    pub packages: Vec<String>,
-
-    // TODO: help message
-    #[arg(short, long, group = "specify", help = "TODO")]
-    pub all: bool,
-}
-
-#[derive(Debug, Clone, Args)]
-pub struct LinkArg {
-    // TODO: help message
-    #[arg(group = "specify", required = true, help = "TODO")]
-    pub packages: Vec<String>,
-
-    // TODO: help message
-    #[arg(short, long, group = "specify", help = "TODO")]
-    pub all: bool,
-
-    // TODO: help message
-    #[arg(short, long, help = "TODO")]
-    pub force: bool,
 }

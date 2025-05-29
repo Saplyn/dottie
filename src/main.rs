@@ -1,33 +1,39 @@
-use std::{env, path::PathBuf, sync::LazyLock};
-
 use clap::Parser;
-use cli::{CliArg, info};
+use log::{LevelFilter, info};
+use simplelog::TermLogger;
+
+use crate::cli::{CliArg, info, link, run};
+use crate::dir::{Dir, ensure_dir_exists};
 
 mod cli;
+mod dir;
 
-struct AppDirs {
-    main: PathBuf,
-    files: PathBuf,
-    scripts: PathBuf,
+fn init_logger() -> eyre::Result<()> {
+    TermLogger::init(
+        LevelFilter::Trace,
+        simplelog::Config::default(),
+        simplelog::TerminalMode::Mixed,
+        simplelog::ColorChoice::Auto,
+    )?;
+
+    Ok(())
 }
 
-static APP_DIRS: LazyLock<AppDirs> = LazyLock::new(|| {
-    let main = env::home_dir()
-        .expect("Home directory is not available")
-        .join(".dottie");
+// LYN: Main
 
-    AppDirs {
-        main: main.clone(),
-        files: main.join("scripts"),
-        scripts: main.join("files"),
-    }
-});
+fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
+    init_logger()?;
+    ensure_dir_exists(Dir::App)?;
 
-fn main() {
     let arg = CliArg::parse();
+    info!("Parsed argument: {:?}", arg);
+
     match arg {
-        CliArg::Run(arg) => todo!(),
-        CliArg::Link(arg) => todo!(),
-        CliArg::Info => info::main(),
+        CliArg::Run(arg) => run::main(arg)?,
+        CliArg::Link(arg) => link::main(arg)?,
+        CliArg::Info => info::main()?,
     }
+
+    Ok(())
 }

@@ -14,6 +14,8 @@ built = { version = "0.8", features = ["chrono"] }
 owo-colors = "4.2"
 # Error Handling
 thiserror = "2.0"
+color-eyre = "0.6"
+eyre = "0.6"
 # Logging
 log = "0.4"
 simplelog = "0.12"
