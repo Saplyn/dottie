@@ -17,6 +17,6 @@ pub struct LinkArg {
 
 // LYN: Main
 
-pub fn main(arg: LinkArg) -> eyre::Result<()> {
+pub fn main(arg: &LinkArg) -> eyre::Result<()> {
     Ok(())
 }

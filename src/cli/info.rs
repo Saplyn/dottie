@@ -2,6 +2,27 @@ use std::{convert::Infallible, fmt::Display};
 
 use owo_colors::OwoColorize;
 
+// LYN: Helper Macros
+
+macro_rules! color {
+    ($s:expr) => {
+        $s.bold().bright_green()
+    };
+}
+
+// LYN: Main
+
+pub fn main() -> Result<(), Infallible> {
+    println!("{}: {}", color!("Build Target"), build::TARGET);
+    println!("{}: {}", color!("Build Host"), build_host());
+    println!("{}: {}", color!("Build Time"), build_time());
+    println!("{}: {}", color!("Build Profile"), build::PROFILE);
+    println!("{}: {}", color!("Rust Version"), build::RUSTC_VERSION);
+    println!("{}: {}", color!("Version"), build_version());
+
+    Ok(())
+}
+
 // LYN: Build Info
 
 pub mod build {
@@ -21,25 +42,4 @@ fn build_host() -> impl Display {
         None => build::HOST.to_owned(),
         Some(ci) => format!("{} ({})", build::HOST, ci),
     }
-}
-
-// LYN: Helper Macro
-
-macro_rules! color {
-    ($s:expr) => {
-        $s.bold().bright_green()
-    };
-}
-
-// LYN: Main
-
-pub fn main() -> Result<(), Infallible> {
-    println!("{}: {}", color!("Build Target"), build::TARGET);
-    println!("{}: {}", color!("Build Host"), build_host());
-    println!("{}: {}", color!("Build Time"), build_time());
-    println!("{}: {}", color!("Build Profile"), build::PROFILE);
-    println!("{}: {}", color!("Rust Version"), build::RUSTC_VERSION);
-    println!("{}: {}", color!("Version"), build_version());
-
-    Ok(())
 }

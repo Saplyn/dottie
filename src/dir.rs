@@ -12,19 +12,30 @@ pub static SCRIPTS_POSTFIX: &str = "scripts";
 
 pub enum Dir<'s> {
     App,
+    Pkg { pkg_name: &'s str },
     Files { pkg_name: &'s str },
     Scripts { pkg_name: &'s str },
 }
 
-pub fn dir_exists(dir: Dir) -> eyre::Result<bool> {
+pub fn get(dir: Dir) -> PathBuf {
+    match dir {
+        Dir::App => APP_DIR.clone(),
+        Dir::Pkg { pkg_name } => APP_DIR.join(pkg_name),
+        Dir::Files { pkg_name } => APP_DIR.join(pkg_name).join(FILES_POSTFIX),
+        Dir::Scripts { pkg_name } => APP_DIR.join(pkg_name).join(SCRIPTS_POSTFIX),
+    }
+}
+
+pub fn exists(dir: Dir) -> eyre::Result<bool> {
     Ok(match dir {
         Dir::App => fs::exists(APP_DIR.as_path())?,
-        Dir::Files { pkg_name } => !fs::exists(APP_DIR.join(pkg_name).join(FILES_POSTFIX))?,
-        Dir::Scripts { pkg_name } => !fs::exists(APP_DIR.join(pkg_name).join(SCRIPTS_POSTFIX))?,
+        Dir::Pkg { pkg_name } => fs::exists(APP_DIR.join(pkg_name))?,
+        Dir::Files { pkg_name } => fs::exists(APP_DIR.join(pkg_name).join(FILES_POSTFIX))?,
+        Dir::Scripts { pkg_name } => fs::exists(APP_DIR.join(pkg_name).join(SCRIPTS_POSTFIX))?,
     })
 }
 
-pub fn ensure_dir_exists(dir: Dir) -> eyre::Result<()> {
+pub fn ensure_exists(dir: Dir) -> eyre::Result<()> {
     match dir {
         Dir::App => {
             if !fs::exists(APP_DIR.as_path())? {
@@ -32,11 +43,18 @@ pub fn ensure_dir_exists(dir: Dir) -> eyre::Result<()> {
                 fs::create_dir(APP_DIR.as_path())?;
             }
         }
+        Dir::Pkg { pkg_name } => {
+            let pkg_dir = APP_DIR.join(pkg_name);
+            if !fs::exists(&pkg_dir)? {
+                warn!("Package `{}` doesn't exist, creating...", pkg_name);
+                fs::create_dir(&pkg_dir)?;
+            }
+        }
         Dir::Files { pkg_name } => {
             let files_dir = APP_DIR.join(pkg_name).join(FILES_POSTFIX);
             if !fs::exists(&files_dir)? {
                 warn!(
-                    "Files directory for package \'{}\' doesn't exist, creating...",
+                    "Files directory for package `{}` doesn't exist, creating...",
                     pkg_name
                 );
                 fs::create_dir(&files_dir)?;
@@ -46,7 +64,7 @@ pub fn ensure_dir_exists(dir: Dir) -> eyre::Result<()> {
             let scripts_dir = APP_DIR.join(pkg_name).join(SCRIPTS_POSTFIX);
             if !fs::exists(&scripts_dir)? {
                 warn!(
-                    "Scripts directory for package \'{}\' doesn't exist, creating...",
+                    "Scripts directory for package `{}` doesn't exist, creating...",
                     pkg_name
                 );
                 fs::create_dir(&scripts_dir)?;
