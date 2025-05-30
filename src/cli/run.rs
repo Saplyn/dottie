@@ -5,7 +5,6 @@ use std::{
     process::{Command, Output},
 };
 
-use built::chrono::format::format;
 use clap::Args;
 use log::{trace, warn};
 use owo_colors::OwoColorize;
