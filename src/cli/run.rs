@@ -99,7 +99,10 @@ impl RunSummary {
                         }
                     }
                 } else {
-                    println!("  - `{}` would be ran", pack.script_name);
+                    println!(
+                        "  - {} would be ran",
+                        format!("`{}`", pack.script_name).cyan()
+                    );
                 }
             }
         }
