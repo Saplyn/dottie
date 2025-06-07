@@ -1,2 +1,8 @@
+# Build directory
 /target
+
+# Experiment directory
+/tmp
+
+# Enviroment variable
 .env
