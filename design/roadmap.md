@@ -16,3 +16,4 @@
 - [x] Package based dotfile management
 - [x] `dottie link` for linking package files
 - [x] `dottie run` for running package scripts
+- [x] `dottie info` for built info display
