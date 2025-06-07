@@ -26,6 +26,8 @@
   - [x] Wrongly picking up non-module file entry
   - [x] `dottie link` wrongly checks `scripts/` instead of `files/`
 - [x] Rename files to `.bak` when `link -f` instead of deleting
+- [x] Interactive script execution
+  - [x] Execution killable without killing main process
 
 ## `v0.0.2`
 

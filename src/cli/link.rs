@@ -331,7 +331,7 @@ fn make_link(packs: &mut Vec<LinkDetailPack>, arg: &LinkArg) -> eyre::Result<()>
                 linked,
             } => {
                 trace!("Linking {:?}", src_path);
-                *linked = Some(soft_link(src_path, dest_path));
+                *linked = Some(unix::fs::symlink(src_path, dest_path));
             }
             LinkDetailPack::AlreadyLinked {
                 src_path,
@@ -358,7 +358,7 @@ fn make_link(packs: &mut Vec<LinkDetailPack>, arg: &LinkArg) -> eyre::Result<()>
                         fs::rename(&dest_path, &backup_path)?;
                         trace!("Moved occupied destination to {:?}", backup_path);
                     }
-                    *force_linked = Some(soft_link(src_path, dest_path));
+                    *force_linked = Some(unix::fs::symlink(src_path, dest_path));
                 } else {
                     warn!("Skipping occupied {:?} -> {:?}", dest_path, src_path);
                 }
@@ -367,14 +367,4 @@ fn make_link(packs: &mut Vec<LinkDetailPack>, arg: &LinkArg) -> eyre::Result<()>
     }
 
     Ok(())
-}
-
-#[cfg(unix)]
-fn soft_link(src_path: &mut PathBuf, dest_path: &mut PathBuf) -> io::Result<()> {
-    unix::fs::symlink(src_path, dest_path)
-}
-
-#[cfg(not(unix))]
-fn soft_link(src_path: &mut PathBuf, dest_path: &mut PathBuf) -> io::Result<()> {
-    todo!() // TODO:
 }

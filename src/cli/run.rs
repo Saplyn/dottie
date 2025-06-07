@@ -1,14 +1,17 @@
 use std::{
     ffi::OsString,
-    io::BufRead,
     os::unix::fs::MetadataExt,
-    path::{Path, PathBuf},
-    process::{Command, Output},
+    path::PathBuf,
+    process::{Command, ExitStatus},
+    sync::{Arc, Barrier, Mutex},
+    thread,
 };
 
 use clap::Args;
-use log::{info, trace, warn};
+use log::{error, info, trace, warn};
+use nix::libc::pid_t;
 use owo_colors::OwoColorize;
+use signal_hook::{consts::SIGINT, iterator::Signals};
 use thiserror::Error;
 
 use crate::dir::{Dir, exists, get, not_package};
@@ -57,8 +60,8 @@ pub fn main(arg: &RunArg) -> eyre::Result<()> {
 
 #[derive(Debug, Default)]
 struct RunSummary {
-    /// Packages whose scripts were ran and it's outputs
-    outputs: Vec<RunOutput>,
+    /// Packages whose scripts were ran and their statuses
+    statuses: Vec<RunStatus>,
     /// package names that do not exist
     non_exist: Vec<String>,
     /// package names that do not have scripts
@@ -69,15 +72,15 @@ impl RunSummary {
     fn display(&self) -> eyre::Result<()> {
         println!("{}", "Run Summary:".bold().bright_green());
 
-        for output in &self.outputs {
+        for status in &self.statuses {
             println!(
                 "- Package {} executed {} script(s)",
-                format!("`{}`", output.pkg_name).yellow(),
-                output.output_pack.len()
+                format!("`{}`", status.pkg_name).yellow(),
+                status.status_pack.len()
             );
-            for pack in &output.output_pack {
-                if let Some(output) = &pack.output {
-                    if output.status.success() {
+            for pack in &status.status_pack {
+                if let Some(status) = &pack.status {
+                    if status.success() {
                         println!(
                             "  - {} finished successfully",
                             format!("`{}`", pack.script_name).cyan()
@@ -86,18 +89,8 @@ impl RunSummary {
                         println!(
                             "  - {} finished with {}",
                             format!("`{}`", pack.script_name).cyan(),
-                            output.status.bright_red()
+                            status.bright_red()
                         );
-                        println!("    - stdout");
-                        for ln in output.stdout.lines() {
-                            let ln = ln?;
-                            println!("      {}", ln.bright_black());
-                        }
-                        println!("    - stderr");
-                        for ln in output.stderr.lines() {
-                            let ln = ln?;
-                            println!("      {}", ln.bright_black());
-                        }
                     }
                 } else {
                     println!(
@@ -124,19 +117,19 @@ impl RunSummary {
 }
 
 #[derive(Debug)]
-struct RunOutput {
+struct RunStatus {
     /// The name of the package whose scripts were ran
     pkg_name: String,
-    /// The output of the scripts ran for the package
-    output_pack: Vec<RunOutputPack>,
+    /// The status of the scripts ran for the package
+    status_pack: Vec<RunStatusPack>,
 }
 
 #[derive(Debug)]
-struct RunOutputPack {
+struct RunStatusPack {
     /// The name of the script that was run
     script_name: String,
-    /// The output of the script, if not dry run
-    output: Option<Output>,
+    /// The status of the script, if not dry run
+    status: Option<ExitStatus>,
 }
 
 // LYN: Run Scripts
@@ -169,9 +162,9 @@ fn run_all(arg: &RunArg) -> eyre::Result<RunSummary> {
             warn!("Package `{}` does not have a scripts folder", pkg_name);
             continue;
         }
-        summary.outputs.push(RunOutput {
+        summary.statuses.push(RunStatus {
             pkg_name: pkg_name.clone(),
-            output_pack: run_pack(&pkg_name, arg.dry)?,
+            status_pack: run_pack(&pkg_name, arg.dry)?,
         });
     }
 
@@ -196,17 +189,41 @@ fn run_specified(arg: &RunArg) -> eyre::Result<RunSummary> {
             warn!("Package `{}` does not have a scripts folder", pkg_name);
             continue;
         }
-        summary.outputs.push(RunOutput {
+        summary.statuses.push(RunStatus {
             pkg_name: pkg_name.to_owned(),
-            output_pack: run_pack(pkg_name, arg.dry)?,
+            status_pack: run_pack(pkg_name, arg.dry)?,
         });
     }
     Ok(summary)
 }
 
 /// Runs scripts for a specific package, optionally in dry run mode.
-fn run_pack(pkg_name: &str, dry: bool) -> eyre::Result<Vec<RunOutputPack>> {
-    let mut output_pack = Vec::new();
+fn run_pack(pkg_name: &str, dry: bool) -> eyre::Result<Vec<RunStatusPack>> {
+    let child_slot: Arc<Mutex<Option<u32>>> = Arc::new(Mutex::new(None));
+    let mut signals = Signals::new([SIGINT])?;
+    let handle = signals.handle();
+    let killer_start = Arc::new(Barrier::new(2));
+    {
+        let child_slot = Arc::clone(&child_slot);
+        let barrier = Arc::clone(&killer_start);
+        thread::spawn(move || {
+            let id = thread::current().id();
+            info!("Child killer {:?} started", id);
+            barrier.wait();
+            for _ in signals.forever() {
+                if let Some(child_pid) = child_slot.lock().unwrap().take() {
+                    let _ = nix::sys::signal::kill(
+                        nix::unistd::Pid::from_raw(child_pid as pid_t),
+                        nix::sys::signal::Signal::SIGKILL,
+                    );
+                }
+            }
+            info!("Child killer {:?} suicided", id);
+        });
+    }
+
+    killer_start.wait();
+    let mut status_pack = Vec::new();
     for entry in get(Dir::Scripts {
         pkg_name: pkg_name.to_owned(),
     })
@@ -214,7 +231,8 @@ fn run_pack(pkg_name: &str, dry: bool) -> eyre::Result<Vec<RunOutputPack>> {
     {
         let entry = entry?;
         let path = entry.path();
-        if !is_exetutable(&path)? {
+        let meta = path.metadata()?;
+        if !path.is_file() || meta.mode() & 0o100 == 0 {
             warn!("Skip non-executable file: {:?}", path);
             continue;
         }
@@ -230,29 +248,37 @@ fn run_pack(pkg_name: &str, dry: bool) -> eyre::Result<Vec<RunOutputPack>> {
             script_name, pkg_name
         );
 
-        let output = if dry {
+        let status = if dry {
             None
         } else {
-            Some(Command::new(&path).output()?)
+            println!(
+                "{}",
+                format!(
+                    "Executing script {} for package {}",
+                    format!("`{}`", script_name).black(),
+                    format!("`{}`", pkg_name).yellow()
+                )
+                .on_blue()
+            );
+            let mut child = Command::new(&path)
+                .stdin(std::process::Stdio::inherit())
+                .stdout(std::process::Stdio::inherit())
+                .stderr(std::process::Stdio::inherit())
+                .spawn()?;
+
+            *child_slot.lock().unwrap() = Some(child.id());
+            let status = child.wait()?;
+            *child_slot.lock().unwrap() = None;
+
+            Some(status)
         };
-        trace!("Script finished with output: {:?}", output);
-        output_pack.push(RunOutputPack {
+        trace!("Script finished with status: {:?}", status);
+        status_pack.push(RunStatusPack {
             script_name,
-            output,
+            status,
         });
     }
-    Ok(output_pack)
-}
 
-#[cfg(unix)]
-fn is_exetutable(path: &Path) -> eyre::Result<bool> {
-    let meta = path.metadata()?;
-    Ok(path.is_file() && meta.mode() & 0o100 != 0)
-}
-
-#[cfg(not(unix))]
-fn is_exetutable(path: &Path) -> Result<bool, Infallible> {
-    Ok(path
-        .extension()
-        .is_some_and(|ext| ext == "sh" || ext == "bat" || ext == "cmd" || ext == "exe"))
+    handle.close();
+    Ok(status_pack)
 }
