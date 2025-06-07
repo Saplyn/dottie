@@ -4,6 +4,21 @@
 
 - [ ] Improved summary output
 - [ ] Structured summary output
+- [ ] Shell completion
+
+## `v0.0.4`
+
+- [ ] Package management
+  - [ ] List all packages
+  - [ ] Add package
+  - [ ] Deliberately don't provide delete package functionality, instead points
+        to the directory to delete
+- [ ] Pickup files into package
+
+## `v0.0.3`
+
+- [ ] Select script to run
+- [ ] Select files to link
 
 ## `v0.0.2`
 
