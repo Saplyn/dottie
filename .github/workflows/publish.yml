@@ -14,23 +14,6 @@ jobs:
   build:
     name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Build project
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Upload built artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dottie-${{ matrix.name }}
-          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
     strategy:
       fail-fast: false
       matrix:
@@ -54,9 +37,28 @@ jobs:
           #   os: windows-latest
           #   target: x86_64-pc-windows-msvc
           #   binary: dottie.exe
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build project
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Upload built artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dottie-${{ matrix.name }}
+          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
+          if-no-files-found: error
 
   release:
     needs: build
+    name: Release to GitHub
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -76,3 +78,4 @@ jobs:
         with:
           draft: true
           token: ${{ secrets.TOKEN_SAPLYN_DOTTIE_ACTION }}
+          files: artifacts/*
