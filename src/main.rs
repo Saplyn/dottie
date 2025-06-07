@@ -23,7 +23,7 @@ fn main() -> eyre::Result<()> {
     match arg {
         CliArg::Run(arg) => run::main(&arg)?,
         CliArg::Link(arg) => link::main(&arg)?,
-        CliArg::Info => info::main()?,
+        CliArg::Info(arg) => info::main(&arg)?,
     }
 
     Ok(())
