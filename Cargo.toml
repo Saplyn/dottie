@@ -7,7 +7,7 @@ description = "A package based dotfile manager"
 license = "MIT OR Apache-2.0"
 authors = ["Qisheng Liu"]
 repository = "https://github.com/Saplyn/dottie"
-categories = ["config", "command-line-utilities", "dotfile"]
+categories = ["config", "command-line-utilities"]
 exclude = ["/.github/", "/design/", "/deny.toml"]
 
 [build-dependencies]
