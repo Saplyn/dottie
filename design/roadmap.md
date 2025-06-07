@@ -7,9 +7,11 @@
 
 ## `v0.0.2`
 
-- [ ] Improved logging
-  - [ ] Disable terminal logging by default, turn-on-able with a flag
-  - [ ] Log to file
+- [x] Flag-able built info display `dottie info -tv`
+- [x] Version display `dottie -V`
+- [x] Improved logging
+  - [x] Toggle-able logging, configured via `RUST_LOG`, disabled by default
+  - [x] Logging to file by piping the `stderr`
 
 ## `v0.0.1`
 
