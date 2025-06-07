@@ -5,6 +5,8 @@
 - [ ] Improved summary output
 - [ ] Structured summary output
 - [ ] Shell completion
+- [ ] Git aware
+  - [ ] Git sub-module support
 
 ## `v0.0.4`
 
