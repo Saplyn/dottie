@@ -3,6 +3,8 @@ name = "dottie"
 version = "0.0.1"
 edition = "2024"
 build = "build.rs"
+description = "A package based dotfile manager"
+license = "MIT OR Apache-2.0"
 
 [build-dependencies]
 built = { version = "0.8", features = ["chrono"] }
