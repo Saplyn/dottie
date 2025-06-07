@@ -69,6 +69,10 @@ jobs:
         with:
           path: artifacts
 
+      - name: Obtain built version
+        working-directory: artifacts/dottie-linux-x86_64
+        run: echo "DOTTIE_VERSION=$(./dottie info -v)" >> "$GITHUB_ENV"
+
       - name: Package artifacts
         working-directory: artifacts
         run: |
@@ -77,9 +81,9 @@ jobs:
             cd "$target" || continue
             echo -e "\033[44;1m Packaging \033[0m \033[1;4m$target\033[0m"
             if grep -qE '(macos|windows)' <<<"$target"; then
-              zip "../$target.zip" ./*
+              zip "../$target-${{ env.DOTTIE_VERSION }}.zip" ./*
             else
-              tar czfv "../$target.tar.gz" ./*
+              tar czfv "../$target-${{ env.DOTTIE_VERSION }}.tar.gz" ./*
             fi
             cd ..
           done
@@ -89,4 +93,5 @@ jobs:
         with:
           draft: true
           token: ${{ secrets.TOKEN_SAPLYN_DOTTIE_ACTION }}
+          tag_name: ${{ env.DOTTIE_VERSION }}
           files: artifacts/*
