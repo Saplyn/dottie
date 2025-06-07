@@ -17,14 +17,15 @@
   - [ ] Deliberately don't provide delete package functionality, instead points
         to the directory to delete
 - [ ] Pickup files into package
+- [ ] Select script to run
+- [ ] Select files to link
 
 ## `v0.0.3`
 
 - [ ] Bug fix
   - [x] Wrongly picking up non-module file entry
   - [x] `dottie link` wrongly checks `scripts/` instead of `files/`
-- [ ] Select script to run
-- [ ] Select files to link
+- [x] Rename files to `.bak` when `link -f` instead of deleting
 
 ## `v0.0.2`
 
