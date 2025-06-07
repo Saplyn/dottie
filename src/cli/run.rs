@@ -7,11 +7,11 @@ use std::{
 };
 
 use clap::Args;
-use log::{trace, warn};
+use log::{info, trace, warn};
 use owo_colors::OwoColorize;
 use thiserror::Error;
 
-use crate::dir::{Dir, exists, get};
+use crate::dir::{Dir, exists, get, not_package};
 
 // LYN: Arguments
 
@@ -154,6 +154,10 @@ fn run_all(arg: &RunArg) -> eyre::Result<RunSummary> {
     let mut summary = RunSummary::default();
     for pkg_entry in get(Dir::App).read_dir()? {
         let pkg_entry = pkg_entry?;
+        if not_package(&pkg_entry.path()) {
+            info!("Skipping non backage entry: {:?}", pkg_entry);
+            continue;
+        }
         let pkg_name = pkg_entry
             .file_name()
             .into_string()

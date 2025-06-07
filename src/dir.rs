@@ -2,7 +2,7 @@ use std::{
     env,
     fmt::{self, Display, Formatter},
     fs, io,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::LazyLock,
 };
 
@@ -119,4 +119,16 @@ pub fn ensure_exists(dir: Dir) -> eyre::Result<()> {
     }
 
     Ok(())
+}
+
+pub fn not_package(path: &Path) -> bool {
+    if let Some(file_name) = path.file_name() {
+        if file_name.to_string_lossy().starts_with('.') {
+            return true;
+        }
+    }
+    if path.is_file() {
+        return true;
+    }
+    false
 }

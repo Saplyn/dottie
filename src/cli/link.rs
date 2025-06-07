@@ -6,11 +6,11 @@ use std::{
 };
 
 use clap::Args;
-use log::{error, trace, warn};
+use log::{error, info, trace, warn};
 use owo_colors::OwoColorize;
 use thiserror::Error;
 
-use crate::dir::{Dir, HOME_DIR, exists, get};
+use crate::dir::{Dir, HOME_DIR, exists, get, not_package};
 
 #[derive(Debug, Args)]
 pub struct LinkArg {
@@ -207,6 +207,10 @@ fn link_all(arg: &LinkArg) -> eyre::Result<LinkSummary> {
     let mut summary = LinkSummary::default();
     for pkg_entry in get(Dir::App).read_dir()? {
         let pkg_entry = pkg_entry?;
+        if not_package(&pkg_entry.path()) {
+            info!("Skipping non backage entry: {:?}", pkg_entry);
+            continue;
+        }
         let pkg_name = pkg_entry
             .file_name()
             .into_string()
