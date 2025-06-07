@@ -12,7 +12,7 @@ env:
 
 jobs:
   build:
-    name: Build ${{ matrix.name }}
+    name: Build for ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -69,9 +69,20 @@ jobs:
         with:
           path: artifacts
 
-      - name: List all artifacts
+      - name: Package artifacts
         working-directory: artifacts
-        run: ls -AlF
+        run: |
+          for target in *; do
+            [ -d "$target" ] || continue
+            cd "$target" || continue
+            echo -e "\033[44;1m Packaging \033[0m \033[1;4m$target\033[0m"
+            if grep -qE '(macos|windows)' <<<"$target"; then
+              zip "../$target.zip" ./*
+            else
+              tar czfv "../$target.tar.gz" ./*
+            fi
+            cd ..
+          done
 
       - name: Make Release
         uses: softprops/action-gh-release@v2
