@@ -71,7 +71,10 @@ jobs:
 
       - name: Obtain built version
         working-directory: artifacts/dottie-linux-x86_64
-        run: ./dottie info -v; echo "DOTTIE_VERSION=$(./dottie info -v)" >> "$GITHUB_ENV"
+        run: |
+          chmod +x ./dottie*
+          ./dottie info -v
+          echo "DOTTIE_VERSION=$(./dottie info -v)" >> "$GITHUB_ENV"
 
       - name: Package artifacts
         working-directory: artifacts
@@ -80,6 +83,7 @@ jobs:
             [ -d "$target" ] || continue
             cd "$target" || continue
             echo -e "\033[44;1m Packaging \033[0m \033[1;4m$target\033[0m"
+            chmod +x ./dottie*
             if grep -qE '(macos|windows)' <<<"$target"; then
               zip "../$target-${{ env.DOTTIE_VERSION }}.zip" ./*
             else
