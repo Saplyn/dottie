@@ -215,11 +215,11 @@ fn link_all(arg: &LinkArg) -> eyre::Result<LinkSummary> {
             .file_name()
             .into_string()
             .map_err(LinkError::InvalidUtf8OsString)?;
-        if !exists(Dir::Scripts {
+        if !exists(Dir::Files {
             pkg_name: pkg_name.to_owned(),
         })? {
             summary.no_files.push(pkg_name.to_owned());
-            warn!("Package `{}` does not have a scripts folder", pkg_name);
+            warn!("Package `{}` does not have a files folder", pkg_name);
             continue;
         }
 
