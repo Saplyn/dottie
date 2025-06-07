@@ -7,6 +7,7 @@
 - [ ] Shell completion
 - [ ] Git aware
   - [ ] Git sub-module support
+- [ ] Ignore files when linking
 
 ## `v0.0.4`
 
