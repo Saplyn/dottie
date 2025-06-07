@@ -1,7 +1,9 @@
 use std::{
+    convert::Infallible,
     ffi::OsString,
     io::BufRead,
-    path::PathBuf,
+    os::unix::fs::MetadataExt,
+    path::{Path, PathBuf},
     process::{Command, Output},
 };
 
@@ -14,7 +16,7 @@ use crate::dir::{Dir, exists, get};
 
 // LYN: Arguments
 
-#[derive(Debug, Clone, Args)]
+#[derive(Debug, Args)]
 pub struct RunArg {
     /// The package(s) whose scripts will be run
     #[arg(
@@ -54,7 +56,7 @@ pub fn main(arg: &RunArg) -> eyre::Result<()> {
 
 // LYN: Run Summary
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 struct RunSummary {
     /// Packages whose scripts were ran and it's outputs
     outputs: Vec<RunOutput>,
@@ -122,7 +124,7 @@ impl RunSummary {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct RunOutput {
     /// The name of the package whose scripts were ran
     pkg_name: String,
@@ -130,7 +132,7 @@ struct RunOutput {
     output_pack: Vec<RunOutputPack>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct RunOutputPack {
     /// The name of the script that was run
     script_name: String,
@@ -158,7 +160,7 @@ fn run_all(arg: &RunArg) -> eyre::Result<RunSummary> {
             .into_string()
             .map_err(RunError::InvalidUtf8OsString)?;
         if !exists(Dir::Scripts {
-            pkg_name: &pkg_name,
+            pkg_name: pkg_name.to_owned(),
         })? {
             summary.no_scripts.push(pkg_name.to_owned());
             warn!("Package `{}` does not have a scripts folder", pkg_name);
@@ -177,12 +179,16 @@ fn run_all(arg: &RunArg) -> eyre::Result<RunSummary> {
 fn run_specified(arg: &RunArg) -> eyre::Result<RunSummary> {
     let mut summary = RunSummary::default();
     for pkg_name in &arg.pkgs {
-        if !exists(Dir::Pkg { pkg_name })? {
+        if !exists(Dir::Pkg {
+            pkg_name: pkg_name.to_owned(),
+        })? {
             summary.non_exist.push(pkg_name.to_owned());
             warn!("Package `{}` does not exist", pkg_name);
             continue;
         }
-        if !exists(Dir::Scripts { pkg_name })? {
+        if !exists(Dir::Scripts {
+            pkg_name: pkg_name.to_owned(),
+        })? {
             summary.no_scripts.push(pkg_name.to_owned());
             warn!("Package `{}` does not have a scripts folder", pkg_name);
             continue;
@@ -198,12 +204,20 @@ fn run_specified(arg: &RunArg) -> eyre::Result<RunSummary> {
 /// Runs scripts for a specific package, optionally in dry run mode.
 fn run_pack(pkg_name: &str, dry: bool) -> eyre::Result<Vec<RunOutputPack>> {
     let mut output_pack = Vec::new();
-    for script_entry in get(Dir::Scripts { pkg_name }).read_dir()? {
-        let script_entry = script_entry?;
-        let script_path = script_entry.path();
-        let script_name = script_path
+    for entry in get(Dir::Scripts {
+        pkg_name: pkg_name.to_owned(),
+    })
+    .read_dir()?
+    {
+        let entry = entry?;
+        let path = entry.path();
+        if !is_exetutable(&path)? {
+            warn!("Skip non-executable file: {:?}", path);
+            continue;
+        }
+        let script_name = path
             .file_name()
-            .ok_or_else(|| RunError::ImpossibleNamelessPath(script_path.clone()))?
+            .ok_or_else(|| RunError::ImpossibleNamelessPath(path.clone()))?
             .to_owned()
             .into_string()
             .map_err(RunError::InvalidUtf8OsString)?;
@@ -216,13 +230,26 @@ fn run_pack(pkg_name: &str, dry: bool) -> eyre::Result<Vec<RunOutputPack>> {
         let output = if dry {
             None
         } else {
-            Some(Command::new(&script_path).output()?)
+            Some(Command::new(&path).output()?)
         };
-        trace!("script finished with output: {:?}", output);
+        trace!("Script finished with output: {:?}", output);
         output_pack.push(RunOutputPack {
             script_name,
             output,
         });
     }
     Ok(output_pack)
+}
+
+#[cfg(unix)]
+fn is_exetutable(path: &Path) -> eyre::Result<bool> {
+    let meta = path.metadata()?;
+    Ok(path.is_file() && meta.mode() & 0o100 != 0)
+}
+
+#[cfg(not(unix))]
+fn is_exetutable(path: &Path) -> Result<bool, Infallible> {
+    Ok(path
+        .extension()
+        .is_some_and(|ext| ext == "sh" || ext == "bat" || ext == "cmd" || ext == "exe"))
 }
