@@ -1,5 +1,4 @@
 use std::{
-    convert::Infallible,
     ffi::OsString,
     io::BufRead,
     os::unix::fs::MetadataExt,
