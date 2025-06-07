@@ -9,6 +9,7 @@ authors = ["Qisheng Liu"]
 repository = "https://github.com/Saplyn/dottie"
 categories = ["config", "command-line-utilities"]
 exclude = ["/.github/", "/design/", "/deny.toml"]
+readme = "README.md"
 
 [build-dependencies]
 built = { version = "0.8", features = ["chrono"] }
