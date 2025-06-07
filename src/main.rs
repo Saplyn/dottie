@@ -1,6 +1,7 @@
 use std::convert::Infallible;
 
 use clap::Parser;
+use env_logger::Target;
 use log::trace;
 
 use crate::{
@@ -33,6 +34,8 @@ fn main() -> eyre::Result<()> {
 // LYN: Helpers
 
 fn init_logger() -> Result<(), Infallible> {
-    env_logger::init();
+    env_logger::Builder::from_default_env()
+        .target(Target::Stdout)
+        .init();
     Ok(())
 }
