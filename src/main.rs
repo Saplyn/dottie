@@ -1,6 +1,7 @@
+use std::convert::Infallible;
+
 use clap::Parser;
-use log::{LevelFilter, trace};
-use simplelog::TermLogger;
+use log::trace;
 
 use crate::{
     cli::{CliArg, info, link, run},
@@ -31,13 +32,7 @@ fn main() -> eyre::Result<()> {
 
 // LYN: Helpers
 
-fn init_logger() -> eyre::Result<()> {
-    TermLogger::init(
-        LevelFilter::Trace,
-        simplelog::Config::default(),
-        simplelog::TerminalMode::Mixed,
-        simplelog::ColorChoice::Auto,
-    )?;
-
+fn init_logger() -> Result<(), Infallible> {
+    env_logger::init();
     Ok(())
 }
