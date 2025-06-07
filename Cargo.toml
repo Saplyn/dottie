@@ -5,6 +5,10 @@ edition = "2024"
 build = "build.rs"
 description = "A package based dotfile manager"
 license = "MIT OR Apache-2.0"
+authors = ["Qisheng Liu"]
+repository = "https://github.com/Saplyn/dottie"
+categories = ["config", "command-line-utilities", "dotfile"]
+exclude = ["/.github/", "/design/", "/deny.toml"]
 
 [build-dependencies]
 built = { version = "0.8", features = ["chrono"] }
