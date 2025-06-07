@@ -20,6 +20,9 @@
 
 ## `v0.0.3`
 
+- [ ] Bug fix
+  - [x] Wrongly picking up non-module file entry
+  - [x] `dottie link` wrongly checks `scripts/` instead of `files/`
 - [ ] Select script to run
 - [ ] Select files to link
 
