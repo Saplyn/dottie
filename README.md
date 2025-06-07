@@ -1,5 +1,7 @@
 # Dottie - Dotfile Manager
 
+[![Build and Publish Package](https://github.com/Saplyn/dottie/actions/workflows/publish.yml/badge.svg?branch=release)](https://github.com/Saplyn/dottie/actions/workflows/publish.yml)
+
 ## Features
 
 > Refer to [roadmap](./design/roadmap.md) for planned features
