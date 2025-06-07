@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use chrono::Utc;
 use clap::Args;
 use log::{error, info, trace, warn};
 use owo_colors::OwoColorize;
@@ -348,22 +349,14 @@ fn make_link(packs: &mut Vec<LinkDetailPack>, arg: &LinkArg) -> eyre::Result<()>
                     if fs::exists(&dest_path).map_err(|e| {
                         LinkError::CannotConfirmFileExistence(dest_path.to_owned(), e)
                     })? {
-                        trace!("Removing occupied destination {:?}", dest_path);
-                        if dest_path.is_file() && fs::remove_file(&dest_path).is_err() {
-                            warn!(
-                                "Failed to remove file {:?}, skip linking {:?}",
-                                dest_path, src_path
-                            );
-                            continue;
-                        }
-                        if dest_path.is_dir() && fs::remove_dir(&dest_path).is_err() {
-                            warn!(
-                                "Failed to remove directory {:?}, skip linking {:?}",
-                                dest_path, src_path
-                            );
-                            continue;
-                        }
-                        trace!("Removed occupied destination {:?}", dest_path);
+                        trace!("Moving occupied destination {:?}", dest_path);
+                        let backup_path = dest_path.with_file_name(format!(
+                            "{}-{}.bak",
+                            dest_path.file_name().unwrap_or_default().to_string_lossy(),
+                            Utc::now().format("%Y%m%d%H%M%S")
+                        ));
+                        fs::rename(&dest_path, &backup_path)?;
+                        trace!("Moved occupied destination to {:?}", backup_path);
                     }
                     *force_linked = Some(soft_link(src_path, dest_path));
                 } else {
