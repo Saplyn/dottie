@@ -29,10 +29,6 @@ jobs:
           # - os: macos-latest
           #   target: x86_64-apple-darwin # for Intel based macs.
           #   binary: dottie
-          #
-          # - os: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   binary: dottie.exe
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -80,7 +76,7 @@ jobs:
             cd "$target" || continue
             echo -e "\033[44;1m Packaging \033[0m \033[1;4m$target\033[0m"
             chmod +x ./dottie*
-            if grep -qE '(macos|windows)' <<<"$target"; then
+            if grep -qE 'macos' <<<"$target"; then
               zip "../$target-${{ env.DOTTIE_VERSION }}.zip" ./*
             else
               tar czfv "../$target-${{ env.DOTTIE_VERSION }}.tar.gz" ./*
