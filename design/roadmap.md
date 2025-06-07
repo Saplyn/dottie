@@ -3,6 +3,7 @@
 ## Unplanned
 
 - [ ] Improved summary output
+- [ ] Structured summary output
 
 ## `v0.0.2`
 
