@@ -6,3 +6,7 @@
 
 # Enviroment variable
 .env
+
+# Editor files
+.vscode/
+.idea/
