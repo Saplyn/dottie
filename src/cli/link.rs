@@ -253,11 +253,11 @@ fn link_specified(arg: &LinkArg) -> eyre::Result<LinkSummary> {
             warn!("Package `{}` does not exist", pkg_name);
             continue;
         }
-        if !exists(Dir::Scripts {
+        if !exists(Dir::Files {
             pkg_name: pkg_name.to_owned(),
         })? {
             summary.no_files.push(pkg_name.to_owned());
-            warn!("Package `{}` does not have a scripts folder", pkg_name);
+            warn!("Package `{}` does not have a files folder", pkg_name);
             continue;
         }
 
